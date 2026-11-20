@@ -1,14 +1,4 @@
-"""
-Functions required:
-    read_sales() - read and process source records
-    validate_sale() - validate required fields and values
-    update_summary() - accumulate item totals
-    log_error() - record invalid data and error details
-    save_summary() - write grouped sales CSV
-    display_totals() - print final totals
-    main() - coordinate the program
-"""
-import csv
+import csv; import os
 
 file_path = "sales.csv"
 
@@ -36,23 +26,6 @@ def validate_sale(customer, product, amount, cost, line):
                 valid = False
     return valid
 
-def update_summary():
-    totals = {}
-    with open(file_path, "r", newline = "") as file:
-        reader = csv.reader(file)
-        next(reader)
-        for row in reader:
-            item = float(row[1])
-            qty = int(row[2])
-
-            if item in totals:
-                totals[item] += qty
-            else:
-                totals[item] = qty
-    with open("sales_summary.csv", "a", newline = "") as file:
-        writer = csv.writer(file)
-        writer.writerow([totals])
-
 def read_sales():
     """Reads through the sales(in).csv file and processes the information"""
     with open(file_path, "r", newline="") as file:
@@ -65,14 +38,56 @@ def read_sales():
             price = float(price)
 
 
+def save_summary(file_path):
+    """Goes through the sales.csv and calculates the totals for the quantity bought of a specific
+    item, and the total price an item made"""
+    sales = {}
+    with open(file_path, "r", newline = "") as file:
+        reader = csv.reader(file)
+        next(reader, None)
+        for row in reader:
+            try:
+                item = row[1].strip(); qty = int(row[2]); price = float(row[3])
+                if not item or qty < 0 or price < 0:
+                    continue
+                if item not in sales:
+                    sales[item] = [0, 0.0]
+                sales[item][0] += qty; sales[item][1] += price
+            except (ValueError, IndexError):
+                continue
+    with open("sales_summary.csv", "w", newline = "") as file:
+        writer = csv.writer(file)
+        writer.writerow(["Item,Qty,Price Total"])
+        for item in sales:
+            writer.writerow([item, sales[item][0], f"{sales[item][1]:.2f}"])
+    return sales
+
 def display_totals():
+    """Displays the results of processing the information in sales.csv"""
     print("Sales Processing Complete")
     print("-------------------------")
+    total_items = 0
+    sales_subtotal = 0
+    with open("sales_summary.csv", "r", newline="") as file:
+        reader = csv.reader(file)
+        next(reader)
+        for row in reader:
+            total_items += int(row[1])
+            sales_subtotal += float(row[2])
+    print(f"Total Items Sold: {total_items}")
+    print(f"Sales Subtotal: ${sales_subtotal:.2f}")
+    with open("errors.log", "r", newline="") as file:
+        reader = csv.reader(file)
+        invalid_records = len(list(reader))
+    print(f"Invalid Records: {invalid_records}")
+    if os.path.exists("errors.log") and os.path.exists("sales_summary.csv"):
+        print("Files Created: sales_summary.csv, errors.log")
 
 
 def main():
     read_sales()
-
+    save_summary(file_path)
+    display_totals()
 
 if __name__ == "__main__":
     main()
